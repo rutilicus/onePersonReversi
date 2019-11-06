@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>
+      OnePersonReversi
+    </title>
+    <script>
+      let turn = 0;
+	  let blackCnt = 2;
+	  let whiteCnt = 2;
+      let imgHandle = [];
+      for (var i = 0; i < 3; i++) {
+		  let tmp = new Image();
+		  tmp.src = "img/" + i + ".png";
+		  imgHandle.push(tmp);
+      }
+      function draw(context, data) {
+		  for (var i = 0; i < 100; i++) {
+			  context.drawImage(imgHandle[data[i]],
+								i % 10 * 32,
+								Math.floor(i / 10) * 32);
+		  }
+		  if (turn == 0) {
+			  document.getElementById("turn").innerText = "黒";
+		  } else {
+			  document.getElementById("turn").innerText = "白";
+		  }
+		  document.getElementById("blackCnt").innerText = blackCnt;
+		  document.getElementById("whiteCnt").innerText = whiteCnt;
+      }
+      const wasmPath = './one_person_reversi.wasm';
+      WebAssembly.instantiateStreaming(fetch(wasmPath), {})
+    .then(({ instance }) => {
+		// 初期化
+		let ban_address = instance.exports.get_array();
+		let ban = new Uint8Array(instance.exports.memory.buffer,
+								 ban_address,
+								 100);
+		let canvas = document.getElementById("canvas");
+		let context = canvas.getContext("2d");
+
+		// 初期化関数
+		function reset() {
+			turn = 0;
+			blackCnt = 2;
+			whiteCnt = 2;
+			instance.exports.init();
+			draw(context, ban);
+		}
+		
+		// 初期化
+		reset();
+
+		// リセットボタンリスナ設定
+		document.getElementById("resetButton").onclick = function() {
+			reset();
+		}
+		
+		// canvasクリックリスナ設定
+		canvas.addEventListener(
+			"click",
+			function(e) {
+				let rect = e.target.getBoundingClientRect();
+				let cnt = instance.exports.click(
+					turn,
+					Math.floor((e.clientX - rect.left) / 32),
+					Math.floor((e.clientY - rect.top) / 32));
+				if (cnt != 0) {
+					if (turn == 0) {
+						blackCnt += cnt;
+						whiteCnt -= cnt - 1;
+					} else {
+						whiteCnt += cnt;
+						blackCnt -= cnt - 1;
+					}
+					turn = (turn + 1) % 2;
+					draw(context, ban);
+				}
+			});
+    });
+    </script>
+  </head>
+  <body>
+    <br>
+    <canvas id="canvas" width="320" height="320"></canvas><br>
+	<span id="turn">黒</span>の番<br>
+	黒の数:<span id="blackCnt">2</span><br>
+	白の数:<span id="whiteCnt">2</span><br>
+	<input type="button" id="resetButton" value="リセット"/><br>
+  </body>
+</html>
